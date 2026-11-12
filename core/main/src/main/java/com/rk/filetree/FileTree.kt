@@ -1,7 +1,6 @@
 package com.rk.filetree
 
 import android.os.Environment
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -78,24 +77,21 @@ fun FileTree(
         }
     }
 
-    LaunchedEffect(MainActivity.instance) {
-        MainActivity.instance?.foregroundListener["fileTreeRefresh"] = { resumed ->
-            if (resumed) {
-                viewModel.refreshEverything()
-            }
-        }
-    }
+    // refresh on demand to avoid lag/crash on resume
 
     LaunchedEffect(viewModel.sortMode) { viewModel.refreshEverything() }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (viewModel.isAnyFileSelected(rootNode.file)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { viewModel.unselectAllFiles(rootNode.file) }) {
+                    IconButton(
+                        onClick = { viewModel.unselectAllFiles(rootNode.file) },
+                        modifier = Modifier.size(40.dp),
+                    ) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(strings.go_prev))
                     }
 
@@ -105,7 +101,7 @@ fun FileTree(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier.weight(1f),
             ) {
                 if (viewModel.isAnyFileSelected(rootNode.file)) {

@@ -44,7 +44,12 @@ class AndroidProcessConnection(private val cmd: Array<String>, instance: LspServ
         }
 
         if (instance.server.id == "cpp") {
-            Cpp.ensureProjectFlags(instance.projectRoot)
+            val root = java.io.File(instance.projectRoot.getAbsolutePath())
+            val isCpp = root.walkTopDown().maxDepth(4).any { f ->
+                val n = f.name.lowercase()
+                n.endsWith(".cpp") || n.endsWith(".cxx") || n.endsWith(".cc") || n.endsWith(".hpp") || n.endsWith(".hh")
+            }
+            Cpp.ensureProjectFlags(instance.projectRoot, isCpp)
         }
 
         pb.environment().apply {

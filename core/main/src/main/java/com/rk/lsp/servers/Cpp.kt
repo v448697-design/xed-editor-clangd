@@ -69,13 +69,13 @@ object Cpp : LspServer() {
         return LspConnectionConfig.AndroidProcess(args)
     }
 
-    fun ensureProjectFlags(projectRoot: FileObject) {
+    fun ensureProjectFlags(projectRoot: FileObject, isCpp: Boolean = true) {
         val root = File(projectRoot.getAbsolutePath())
         if (!root.isDirectory) return
         if (File(root, "compile_commands.json").exists()) return
         if (File(root, ".clangd").exists()) return
 
-        val flags = generatedFlags()
+        val flags = if (isCpp) generatedFlagsCpp() else generatedFlags()
         val flagsFile = File(root, "compile_flags.txt")
         if (flagsFile.exists()) {
             val existing = runCatching { flagsFile.readText() }.getOrNull() ?: return
@@ -87,6 +87,19 @@ object Cpp : LspServer() {
 
     private fun generatedFlags(): String =
         buildString {
+            appendLine("-std=c17")
+            appendLine("-xc")
+            appendLine("--target=aarch64-linux-android26")
+            includeDirs().forEach {
+                appendLine("-isystem")
+                appendLine(it.absolutePath)
+            }
+        }
+
+    private fun generatedFlagsCpp(): String =
+        buildString {
+            appendLine("-std=c++17")
+            appendLine("-xc++")
             appendLine("--target=aarch64-linux-android26")
             includeDirs().forEach {
                 appendLine("-isystem")
@@ -96,9 +109,13 @@ object Cpp : LspServer() {
 
     private fun isOwnedFlags(text: String): Boolean {
         val lines = text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
-        val current =
-            generatedFlags().lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
-        return lines == current || lines == listOf("-std=c++17") + current
+        val owned =
+            listOf(
+                generatedFlags().lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList(),
+                generatedFlagsCpp().lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList(),
+                listOf("-std=c++17") + generatedFlags().lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList(),
+            )
+        return lines in owned
     }
 
     private fun ensureHeaders() {

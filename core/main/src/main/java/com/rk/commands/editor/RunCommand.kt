@@ -1,5 +1,6 @@
 package com.rk.commands.editor
 
+import android.util.Log
 import android.view.KeyEvent
 import com.rk.DefaultScope
 import com.rk.commands.EditorActionContext
@@ -27,14 +28,17 @@ class RunCommand : EditorCommand() {
     override fun action(editorActionContext: EditorActionContext) {
         val editorTab = editorActionContext.editorTab
         val activity = editorActionContext.currentActivity
+        val tabs = commandContext.mainViewModel.tabs
+        Log.d("RunCommand", "Run requested for ${editorTab.file.getAbsolutePath()}")
         DefaultScope.launch {
             withContext(Dispatchers.IO) {
-                editorActionContext.mainViewModel.tabs.forEach { tab ->
+                tabs.forEach { tab ->
                     if (tab is EditorTab) {
                         runCatching { tab.save() }
                     }
                 }
             }
+            Log.d("RunCommand", "Saved tabs, running ${editorTab.file.getAbsolutePath()}")
             Settings.runs += 1
             RunnerManager.run(
                 activity = activity,

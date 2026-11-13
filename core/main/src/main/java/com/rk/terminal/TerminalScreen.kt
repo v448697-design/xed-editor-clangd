@@ -266,26 +266,21 @@ private fun ColumnScope.TerminalView(
                 setTextSize(dpToPx(Settings.terminal_font_size.toFloat(), context))
                 val client = TerminalBackEnd()
 
+                val command = pendingCommand
                 val session =
-                    if (pendingCommand != null) {
-                        terminalActivity.sessionBinder?.get()!!.getService().currentSession.value = pendingCommand!!.id
-                        terminalActivity.sessionBinder?.get()!!.getSession(pendingCommand!!.id)
-                            ?: terminalActivity.sessionBinder
-                                ?.get()!!
-                                .createSession(pendingCommand!!.id, client, terminalActivity)
-                                .session
+                    if (command != null) {
+                        val binder = terminalActivity.sessionBinder?.get()!!
+                        if (command.terminatePreviousSession) {
+                            binder.terminateSession(command.id)
+                        }
+                        binder.getService().currentSession.value = command.id
+                        binder.getSession(command.id)
+                            ?: binder.createSession(command.id, client, terminalActivity).session
                     } else {
-                        terminalActivity.sessionBinder
-                            ?.get()!!
-                            .getSession(terminalActivity.sessionBinder?.get()!!.getService().currentSession.value)
-                            ?: terminalActivity.sessionBinder
-                                ?.get()!!
-                                .createSession(
-                                    terminalActivity.sessionBinder?.get()!!.getService().currentSession.value,
-                                    client,
-                                    terminalActivity,
-                                )
-                                .session
+                        val binder = terminalActivity.sessionBinder?.get()!!
+                        val currentId = binder.getService().currentSession.value
+                        binder.getSession(currentId)
+                            ?: binder.createSession(currentId, client, terminalActivity).session
                     }
 
                 session.updateTerminalSessionClient(client)

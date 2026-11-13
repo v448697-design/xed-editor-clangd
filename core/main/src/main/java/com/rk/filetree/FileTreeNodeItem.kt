@@ -1,16 +1,10 @@
 package com.rk.filetree
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,17 +19,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -55,6 +46,7 @@ fun FileTreeNodeItem(
     root: FileObject,
     node: FileTreeNode,
     depth: Int,
+    displayName: String,
     onFileClick: (FileTreeNode) -> Unit,
     viewModel: FileTreeViewModel,
 ) {
@@ -78,6 +70,7 @@ fun FileTreeNodeItem(
             else -> Color.Transparent
         }
     val rowShape = RoundedCornerShape(8.dp)
+    val guideColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
 
     // Load children when expanded
     LaunchedEffect(node.file, isExpanded) {
@@ -86,127 +79,92 @@ fun FileTreeNodeItem(
         }
     }
 
-    val children by
-        remember(node.file, isExpanded) {
-            derivedStateOf {
-                if (node.isDirectory && isExpanded) {
-                    viewModel.getNodeChildren(node)
-                } else {
-                    emptyList()
-                }
-            }
-        }
-
-    var displayedChildren by remember { mutableStateOf(children) }
-    var displayName by remember { mutableStateOf(node.name) }
-
-    LaunchedEffect(children, Settings.compact_folders_drawer) {
-        displayedChildren =
-            if (Settings.compact_folders_drawer && children.size == 1 && children[0].isDirectory) {
-                val collapsedNode = viewModel.collapseNode(root, node)
-                viewModel.getNodeChildren(collapsedNode)
-            } else children
-        displayName =
-            if (Settings.compact_folders_drawer) {
-                viewModel.getCollapsedName(node)
-            } else node.name
-    }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
-            Row(
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .addIf(isCut) { alpha(0.5f) }
-                        .clip(rowShape)
-                        .background(rowColor)
-                        .combinedClickable(
-                            onClick = {
-                                if (viewModel.isAnyFileSelected(root)) {
-                                    viewModel.toggleSelection(root, node.file)
-                                    return@combinedClickable
-                                }
-
-                                if (node.isDirectory) {
-                                    viewModel.toggleNodeExpansion(root, node.file)
-                                    return@combinedClickable
-                                }
-
-                                onFileClick(node)
-                            },
-                            onLongClick = { viewModel.toggleSelection(root, node.file) },
-                        )
-                        .heightIn(min = 40.dp)
-                        .padding(end = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Spacer(modifier = Modifier.width(horizontalPadding))
-
-                if (node.isDirectory) {
-                    val rotationDegree by
-                        animateFloatAsState(
-                            targetValue = if (!isExpanded) 0f else 90f,
-                            animationSpec = tween(120),
-                            label = "rotation",
-                        )
-
-                    Box(modifier = Modifier.size(20.dp), contentAlignment = Alignment.Center) {
-                        if (isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(9.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(
-                                painter = painterResource(drawables.chevron_right),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                modifier = Modifier.size(16.dp).rotate(rotationDegree),
-                            )
+    Box(modifier = modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
+        Row(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .drawBehind {
+                        if (depth > 0) {
+                            val step = 16.dp.toPx()
+                            val stroke = 1.dp.toPx()
+                            for (level in 1..depth) {
+                                val x = (level * step) - (step / 2f)
+                                drawLine(
+                                    color = guideColor,
+                                    start = Offset(x, 0f),
+                                    end = Offset(x, size.height),
+                                    strokeWidth = stroke,
+                                )
+                            }
                         }
                     }
+                    .addIf(isCut) { alpha(0.5f) }
+                    .clip(rowShape)
+                    .background(rowColor)
+                    .combinedClickable(
+                        onClick = {
+                            if (viewModel.isAnyFileSelected(root)) {
+                                viewModel.toggleSelection(root, node.file)
+                                return@combinedClickable
+                            }
 
-                    Spacer(modifier = Modifier.width(4.dp))
-                } else {
-                    Spacer(modifier = Modifier.width(24.dp))
-                }
+                            if (node.isDirectory) {
+                                viewModel.toggleNodeExpansion(root, node.file)
+                                return@combinedClickable
+                            }
 
-                Box(modifier = Modifier.addIf(isHidden) { alpha(0.5f) }) { FileIcon(node.file, isExpanded = isExpanded) }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                val underlineColor = getUnderlineColor(context, viewModel, node.file)
-                Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier =
-                        Modifier.weight(1f).addIf(underlineColor != null) {
-                            drawErrorUnderline(underlineColor!!)
+                            onFileClick(node)
                         },
-                    color = getGitColor(node.file) ?: MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        }
-
-        AnimatedVisibility(
-            modifier = Modifier.fillMaxWidth(),
-            visible = isExpanded && node.isDirectory && children.isNotEmpty(),
-            enter = expandVertically(animationSpec = tween(140)) + fadeIn(animationSpec = tween(120)),
-            exit = shrinkVertically(animationSpec = tween(120)) + fadeOut(animationSpec = tween(90)),
+                        onLongClick = { viewModel.toggleSelection(root, node.file) },
+                    )
+                    .heightIn(min = 40.dp)
+                    .padding(end = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                displayedChildren.forEach { childNode ->
-                    key(childNode.file.hashCode(), childNode.name) {
-                        FileTreeNodeItem(
-                            modifier = Modifier.fillMaxWidth(),
-                            root = root,
-                            node = childNode,
-                            depth = depth + 1,
-                            onFileClick = onFileClick,
-                            viewModel = viewModel,
+            Spacer(modifier = Modifier.width(horizontalPadding))
+
+            if (node.isDirectory) {
+                val rotationDegree by
+                    animateFloatAsState(
+                        targetValue = if (!isExpanded) 0f else 90f,
+                        animationSpec = tween(120),
+                        label = "rotation",
+                    )
+
+                Box(modifier = Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(9.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            painter = painterResource(drawables.chevron_right),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(16.dp).rotate(rotationDegree),
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.width(4.dp))
+            } else {
+                Spacer(modifier = Modifier.width(24.dp))
             }
+
+            Box(modifier = Modifier.addIf(isHidden) { alpha(0.5f) }) { FileIcon(node.file, isExpanded = isExpanded) }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            val underlineColor = getUnderlineColor(context, viewModel, node.file)
+            Text(
+                text = displayName,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier =
+                    Modifier.weight(1f).addIf(underlineColor != null) {
+                        drawErrorUnderline(underlineColor!!)
+                    },
+                color = getGitColor(node.file) ?: MaterialTheme.colorScheme.onSurface,
+            )
         }
     }
 }

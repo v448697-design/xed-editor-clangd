@@ -24,6 +24,8 @@ fun FileObject.toFileTreeNode(): FileTreeNode {
     return FileTreeNode(file = this, isFile = isFile(), isDirectory = isDirectory(), name = getAppropriateName())
 }
 
+data class VisibleFileNode(val node: FileTreeNode, val depth: Int, val displayName: String)
+
 class FileTreeViewModel : ViewModel() {
     // File option dialogs
     var showRenameDialog by mutableStateOf(false)
@@ -354,6 +356,64 @@ class FileTreeViewModel : ViewModel() {
 
     fun getNodeChildren(node: FileTreeNode): List<FileTreeNode> {
         return fileListCache[node.file] ?: emptyList()
+    }
+
+    /**
+     * Flattens the expanded part of the tree into a list that can be rendered by a LazyColumn. Only the nodes that are
+     * actually visible are returned, so large projects no longer compose every branch at once.
+     */
+    fun getVisibleNodes(projectRoot: FileTreeNode): List<VisibleFileNode> {
+        val visible = ArrayList<VisibleFileNode>()
+        val compact = Settings.compact_folders_drawer
+
+        fun visit(node: FileTreeNode, depth: Int) {
+            val isHidden = node.file.getName().startsWith(".")
+            if (isHidden && !Settings.show_hidden_files_drawer) return
+
+            var displayName = node.name
+            var expandedNode = node
+            if (compact) {
+                var guard = 0
+                while (guard++ < 32) {
+                    val children = fileListCache[expandedNode.file] ?: break
+                    if (children.size != 1) break
+                    val child = children.first()
+                    if (!child.isDirectory) break
+                    displayName += "/${child.name}"
+                    expandedNode = child
+                }
+                collapsedNameCache[node.file] = displayName
+            }
+
+            visible += VisibleFileNode(node = node, depth = depth, displayName = displayName)
+
+            if (isNodeExpanded(projectRoot.file, node.file)) {
+                getNodeChildren(expandedNode).forEach { child -> visit(child, depth + 1) }
+            }
+        }
+
+        visit(projectRoot, 0)
+        return visible
+    }
+
+    /** Kicks off loading for expanded folders without blocking composition. */
+    fun ensureVisibleNodesLoaded(projectRoot: FileTreeNode, visible: List<VisibleFileNode>) {
+        visible.forEach { item ->
+            if (!item.node.isDirectory || !isNodeExpanded(projectRoot.file, item.node.file)) return@forEach
+
+            loadChildrenForNode(item.node)
+
+            if (Settings.compact_folders_drawer) {
+                var current = item.node
+                var guard = 0
+                while (guard++ < 32) {
+                    val children = fileListCache[current.file] ?: break
+                    if (children.size != 1 || !children.first().isDirectory) break
+                    current = children.first()
+                }
+                if (current !== item.node) loadChildrenForNode(current)
+            }
+        }
     }
 
     fun loadChildrenForNode(node: FileTreeNode) {

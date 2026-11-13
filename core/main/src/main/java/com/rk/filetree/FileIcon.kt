@@ -21,6 +21,7 @@ import com.rk.utils.loadSvg
 
 private val plain_file = drawables.file
 private val folder = drawables.folder
+private val outlineFolder = drawables.outline_folder
 private val unknown = drawables.unknown_document
 private val fileSymlink = drawables.file_symlink
 private val archive = drawables.archive
@@ -50,16 +51,16 @@ fun FileIcon(file: FileObject, iconTint: Color? = null, isExpanded: Boolean = fa
     val icon =
         when {
             file.isFile() -> getBuiltInFileIcon(file)
-            file.isDirectory() -> Icon.ResourceIcon(folder)
+            file.isDirectory() -> Icon.ResourceIcon(if (isExpanded) folder else outlineFolder)
             file.isSymlink() -> Icon.ResourceIcon(fileSymlink)
             else -> Icon.ResourceIcon(unknown)
         }
 
     val tint =
         iconTint
-            ?: if (icon is Icon.ResourceIcon && (icon.drawableRes == folder || icon.drawableRes == archive)) {
+            ?: if (icon is Icon.ResourceIcon && (icon.drawableRes == folder || icon.drawableRes == outlineFolder)) {
                 MaterialTheme.colorScheme.primary
-            } else MaterialTheme.colorScheme.secondary
+            } else MaterialTheme.colorScheme.onSurfaceVariant
 
     val useTint = currentIconPack.value?.manifest?.applyTint == true
 
@@ -96,13 +97,13 @@ fun FileNameIcon(fileName: String, isDirectory: Boolean, iconTint: Color? = null
     val iconPackFile = currentIconPack.value?.getIconFileForName(fileName, isDirectory, isExpanded)
     val imageLoader = rememberSvgImageLoader()
 
-    val icon = if (isDirectory) Icon.ResourceIcon(folder) else getBuiltInFileIcon(fileName)
+    val icon = if (isDirectory) Icon.ResourceIcon(if (isExpanded) folder else outlineFolder) else getBuiltInFileIcon(fileName)
 
     val tint =
         iconTint
-            ?: if (icon is Icon.ResourceIcon && (icon.drawableRes == folder || icon.drawableRes == archive)) {
+            ?: if (icon is Icon.ResourceIcon && (icon.drawableRes == folder || icon.drawableRes == outlineFolder)) {
                 MaterialTheme.colorScheme.primary
-            } else MaterialTheme.colorScheme.secondary
+            } else MaterialTheme.colorScheme.onSurfaceVariant
 
     val useTint = currentIconPack.value?.manifest?.applyTint == true
 
@@ -133,7 +134,7 @@ fun FileNameIcon(fileName: String, isDirectory: Boolean, iconTint: Color? = null
  */
 fun getDrawableFileIcon(fileName: String, isDirectory: Boolean, isExpanded: Boolean = false): Drawable? {
     val iconPackFile = currentIconPack.value?.getIconFileForName(fileName, isDirectory, isExpanded)
-    val icon = if (isDirectory) Icon.ResourceIcon(folder) else getBuiltInFileIcon(fileName)
+    val icon = if (isDirectory) Icon.ResourceIcon(if (isExpanded) folder else outlineFolder) else getBuiltInFileIcon(fileName)
 
     val builtinIcon = icon.toDrawable()
     val iconPackIcon = iconPackFile?.inputStream()?.let { loadSvg(it) }

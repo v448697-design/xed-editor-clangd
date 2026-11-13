@@ -74,7 +74,7 @@ fun AddProjectSheet(
                     title = stringResource(strings.internal_storage),
                     description = stringResource(strings.open_internal_storage),
                     onClick = {
-                        viewModel.addFileTreeTab(FileWrapper(storage))
+                        viewModel.addFileTreeTab(FileWrapper(storage), true)
                         onDismiss()
                     },
                 )
@@ -98,7 +98,7 @@ fun AddProjectSheet(
                         title = name,
                         description = stringResource(description),
                     ) {
-                        viewModel.addFileTreeTab(FileWrapper(root))
+                        viewModel.addFileTreeTab(FileWrapper(root), true)
                         onDismiss()
                     }
                 }

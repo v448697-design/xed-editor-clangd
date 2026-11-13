@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.DrawerState
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -47,6 +46,7 @@ import com.mohamedrejeb.compose.dnd.reorder.ReorderableItem
 import com.mohamedrejeb.compose.dnd.reorder.rememberReorderState
 import com.rk.commands.CommandPalette
 import com.rk.commands.CommandProvider
+import com.rk.components.AnimatedDropdownMenu
 import com.rk.components.compose.utils.addIf
 import com.rk.drawer.DrawerViewModel
 import com.rk.editor.preloadSelectionColor
@@ -332,7 +332,7 @@ private fun TabItemContent(
             modifier = Modifier.addIf(underlineColor != null) { drawErrorUnderline(underlineColor!!) },
         )
 
-        DropdownMenu(expanded = showTabMenu, onDismissRequest = { showTabMenu = false }) {
+        AnimatedDropdownMenu(expanded = showTabMenu, onDismissRequest = { showTabMenu = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(strings.close_this)) },
                 onClick = {
@@ -374,7 +374,7 @@ private fun TabItemContent(
         }
 
         tabState.file?.let {
-            DropdownMenu(expanded = showFileActionMenu, onDismissRequest = { showFileActionMenu = false }) {
+            AnimatedDropdownMenu(expanded = showFileActionMenu, onDismissRequest = { showFileActionMenu = false }) {
                 val root = (tabState as? EditorTab)?.projectRoot
                 val actions = remember(it) { FileActionProvider.getActions(it, root) }
 

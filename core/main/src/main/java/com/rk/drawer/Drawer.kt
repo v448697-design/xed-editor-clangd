@@ -5,6 +5,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -95,7 +96,7 @@ fun DrawerContent(fullscreen: Boolean) {
                         }
                         .onFailure { it.printStackTrace() }
 
-                    scope.launch { viewModel.addFileTreeTab(it.toFileObject(expectedIsFile = false)) }
+                    scope.launch { viewModel.addFileTreeTab(it.toFileObject(expectedIsFile = false), true) }
                 }
             },
         )
@@ -195,7 +196,7 @@ fun DrawerContent(fullscreen: Boolean) {
                                                 repoURLError = null
                                                 repoBranchError = null
                                                 if (success) {
-                                                    viewModel.addFileTreeTab(fileObject)
+                                                    viewModel.addFileTreeTab(fileObject, true)
                                                 }
                                             },
                                         )
@@ -277,7 +278,11 @@ fun DrawerContent(fullscreen: Boolean) {
                 VerticalDivider()
 
                 Surface {
-                    Crossfade(targetState = viewModel.currentDrawerTab, label = "file tree") { tab ->
+                    Crossfade(
+                        targetState = viewModel.currentDrawerTab,
+                        animationSpec = tween(120),
+                        label = "file tree",
+                    ) { tab ->
                         if (viewModel.currentServiceTab == null) {
                             if (tab != null) {
                                 tab.Content(modifier = Modifier.fillMaxSize())
@@ -302,7 +307,7 @@ fun DrawerContent(fullscreen: Boolean) {
                         }
                     }
 
-                    Crossfade(targetState = viewModel.currentServiceTab) { tab ->
+                    Crossfade(targetState = viewModel.currentServiceTab, animationSpec = tween(120)) { tab ->
                         tab?.Content(modifier = Modifier.fillMaxSize())
                     }
                 }

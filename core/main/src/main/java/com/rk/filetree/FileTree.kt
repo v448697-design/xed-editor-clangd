@@ -13,16 +13,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,8 +31,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import com.rk.activities.main.MainActivity
+import com.rk.components.AnimatedDropdownMenu
 import com.rk.activities.main.searchViewModel
 import com.rk.drawer.DrawerViewModel
 import com.rk.file.FileObject
@@ -101,7 +101,7 @@ fun FileTree(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.End),
                 modifier = Modifier.weight(1f),
             ) {
                 if (viewModel.isAnyFileSelected(rootNode.file)) {
@@ -120,18 +120,21 @@ fun FileTree(
             }
         }
 
-        Column(
-            modifier =
-                Modifier.horizontalScroll(rememberScrollState())
-                    .verticalScroll(rememberScrollState())
-                    .padding(vertical = 8.dp)
-        ) {
-            key(rootNode.file.hashCode(), rootNode.name) {
+        val visibleNodes by
+            remember(rootNode) {
+                derivedStateOf { viewModel.getVisibleNodes(rootNode) }
+            }
+
+        LaunchedEffect(visibleNodes) { viewModel.ensureVisibleNodesLoaded(rootNode, visibleNodes) }
+
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(vertical = 6.dp)) {
+            items(items = visibleNodes, key = { it.node.file.getAbsolutePath() }) { item ->
                 FileTreeNodeItem(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().animateItem(),
                     root = rootNode.file,
-                    node = rootNode,
-                    depth = 0,
+                    node = item.node,
+                    depth = item.depth,
+                    displayName = item.displayName,
                     onFileClick = { rootNode.onFileClick(it) },
                     viewModel = viewModel,
                 )
@@ -171,6 +174,7 @@ private fun SelectionActions(viewModel: FileTreeViewModel, drawerViewModel: Draw
                         val file = selectedFiles.first() // Is safe because of the check in getActions()
                         IconButton(
                             enabled = action.isEnabled(file),
+                            modifier = Modifier.size(40.dp),
                             onClick = {
                                 val context =
                                     FileActionContext(file, rootNode.file, viewModel, drawerViewModel, context)
@@ -185,6 +189,7 @@ private fun SelectionActions(viewModel: FileTreeViewModel, drawerViewModel: Draw
                     is MultiFileAction -> {
                         IconButton(
                             enabled = action.isEnabled(selectedFiles),
+                            modifier = Modifier.size(40.dp),
                             onClick = {
                                 val context =
                                     MultiFileActionContext(
@@ -207,11 +212,11 @@ private fun SelectionActions(viewModel: FileTreeViewModel, drawerViewModel: Draw
 
             if (dropdownActions.isNotEmpty()) {
                 Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
-                    IconButton(onClick = { expanded = true }, modifier = Modifier.size(48.dp)) {
+                    IconButton(onClick = { expanded = true }, modifier = Modifier.size(40.dp)) {
                         Icon(Icons.Outlined.MoreVert, stringResource(strings.more))
                     }
 
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    AnimatedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         dropdownActions.forEach { action ->
                             when (action) {
                                 is FileAction -> {
@@ -270,16 +275,23 @@ private fun SelectionActions(viewModel: FileTreeViewModel, drawerViewModel: Draw
 private fun FileTreeActions(viewModel: FileTreeViewModel, onSearchClick: () -> Unit) {
     var showOptionsMenu by remember { mutableStateOf(false) }
 
-    IconButton(onClick = { viewModel.viewModelScope.launch { viewModel.refreshEverything() } }) {
+    IconButton(
+        onClick = { viewModel.viewModelScope.launch { viewModel.refreshEverything() } },
+        modifier = Modifier.size(40.dp),
+    ) {
         Icon(Icons.Outlined.Refresh, stringResource(strings.refresh))
     }
 
-    IconButton(onClick = onSearchClick) { Icon(Icons.Outlined.Search, stringResource(strings.search)) }
+    IconButton(onClick = onSearchClick, modifier = Modifier.size(40.dp)) {
+        Icon(Icons.Outlined.Search, stringResource(strings.search))
+    }
 
     Box {
-        IconButton(onClick = { showOptionsMenu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(strings.more)) }
+        IconButton(onClick = { showOptionsMenu = true }, modifier = Modifier.size(40.dp)) {
+            Icon(Icons.Outlined.MoreVert, stringResource(strings.more))
+        }
 
-        DropdownMenu(expanded = showOptionsMenu, onDismissRequest = { showOptionsMenu = false }) {
+        AnimatedDropdownMenu(expanded = showOptionsMenu, onDismissRequest = { showOptionsMenu = false }) {
             DropdownMenuItem(
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {

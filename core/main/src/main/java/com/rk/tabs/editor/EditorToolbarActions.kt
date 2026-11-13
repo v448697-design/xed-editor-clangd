@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +35,7 @@ import com.rk.commands.ActionContext
 import com.rk.commands.KeybindingsManager
 import com.rk.commands.ToggleableCommand
 import com.rk.commands.ToolbarConfiguration
+import com.rk.components.AnimatedDropdownMenu
 import com.rk.icons.Icon
 import com.rk.icons.XedIcon
 import com.rk.resources.strings
@@ -107,7 +107,7 @@ fun EditorToolbarActions(modifier: Modifier = Modifier, viewModel: MainViewModel
                         Icon(Icons.Outlined.MoreVert, stringResource(strings.more))
                     }
 
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    AnimatedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         dropdownActions.forEach { command ->
                             val keyCombination = KeybindingsManager.getKeyCombinationForCommand(command.id)
                             val displayKeyCombination = keyCombination?.getDisplayName()

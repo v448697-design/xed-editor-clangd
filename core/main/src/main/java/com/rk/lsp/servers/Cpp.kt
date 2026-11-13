@@ -62,7 +62,7 @@ object Cpp : LspServer() {
                 "--clang-tidy=false",
                 "--all-scopes-completion=true",
                 "--completion-style=bundled",
-                "--header-insertion=never",
+                "--header-insertion=iwyu",
                 "--pch-storage=memory",
                 "--log=error",
             )

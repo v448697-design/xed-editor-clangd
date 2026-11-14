@@ -461,6 +461,8 @@ open class EditorTab(override var file: FileObject, var projectRoot: FileObject?
                     },
                 )
 
+                DiagnosticsStatusBar(editorTab = this@EditorTab)
+
                 val showColorPicker = editorState.showColorPicker
                 if (showColorPicker != null) {
                     ColorPicker(
@@ -491,7 +493,7 @@ open class EditorTab(override var file: FileObject, var projectRoot: FileObject?
                     refreshKey,
                     LocalConfiguration.current,
                     LocalContext.current,
-                    MaterialTheme.colorScheme,
+                    file.getAbsolutePath(),
                 ) {
                     applyHighlightingAndConnectLSP()
                 }

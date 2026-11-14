@@ -297,8 +297,10 @@ class FileTreeViewModel : ViewModel() {
     }
 
     fun updateCache(file: FileObject) {
-        searchViewModel.get()?.syncIndex(file)
-        gitViewModel.get()?.syncChanges(file.getAbsolutePath())
+        if (!isStorageVolumeRoot(file)) {
+            searchViewModel.get()?.syncIndex(file)
+            gitViewModel.get()?.syncChanges(file.getAbsolutePath())
+        }
         if (file.isDirectory().not()) {
             return
         }
@@ -382,7 +384,6 @@ class FileTreeViewModel : ViewModel() {
                     displayName += "/${child.name}"
                     expandedNode = child
                 }
-                collapsedNameCache[node.file] = displayName
             }
 
             visible += VisibleFileNode(node = node, depth = depth, displayName = displayName)
@@ -515,4 +516,10 @@ class FileTreeViewModel : ViewModel() {
             .filter { !excluder.isExcluded(it.getAbsolutePath()) }
             .map { it.toFileTreeNode() }
     }
+}
+
+/** Indexing or recursively syncing an entire storage volume is never useful and is very expensive. */
+internal fun isStorageVolumeRoot(file: FileObject): Boolean {
+    val path = file.getAbsolutePath()
+    return path == "/" || path == "/sdcard" || path == "/storage/emulated/0"
 }

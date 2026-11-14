@@ -74,4 +74,9 @@ data class CodeEditorState(val initialContent: Content? = null) {
 
     var isWrapping by mutableStateOf(false)
     var isConnectingLsp by mutableStateOf(false)
+
+    var errorCount by mutableStateOf(0)
+    var warningCount by mutableStateOf(0)
+    var infoCount by mutableStateOf(0)
+    var diagnosticsReceived by mutableStateOf(false)
 }

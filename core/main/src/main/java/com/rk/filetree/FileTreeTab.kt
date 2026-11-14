@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.rk.DefaultScope
 import com.rk.activities.main.MainActivity
 import com.rk.activities.main.drawerStateRef
 import com.rk.activities.main.fileTreeViewModel
@@ -62,11 +63,13 @@ import com.rk.utils.formatFileSize
 import com.rk.utils.rememberNumberFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 class FileTreeTab(val root: FileObject) : DrawerTab() {
     val indexingPreferenceKey
         get() = "enable_indexing_${root.hashCode()}"
+
+    private var indexStarted = false
+    private var supportChecked = false
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -92,8 +95,12 @@ class FileTreeTab(val root: FileObject) : DrawerTab() {
 
         LaunchedEffect(enableIndexing) {
             if (enableIndexing) {
-                launch(Dispatchers.IO) { searchViewModel.get()?.index(context, root) }
+                if (!indexStarted && !isStorageVolumeRoot(root)) {
+                    indexStarted = true
+                    launch(Dispatchers.IO) { searchViewModel.get()?.index(context, root) }
+                }
             } else {
+                indexStarted = false
                 launch(Dispatchers.IO) { searchViewModel.get()?.deleteIndex(context, root) }
             }
         }
@@ -268,10 +275,16 @@ class FileTreeTab(val root: FileObject) : DrawerTab() {
     }
 
     override fun isSupported(): Boolean {
-        if (runBlocking { !root.exists() } || !root.isDirectory()) {
-            val drawerViewModel = MainActivity.instance?.drawerViewModel ?: return false
-            drawerViewModel.removeDrawerTab(this@FileTreeTab, true)
-            return false
+        if (!supportChecked) {
+            supportChecked = true
+            DefaultScope.launch(Dispatchers.IO) {
+                val supported =
+                    runCatching { root.exists() && root.isDirectory() }.getOrDefault(false)
+                if (!supported) {
+                    val drawerViewModel = MainActivity.instance?.drawerViewModel ?: return@launch
+                    drawerViewModel.removeDrawerTab(this@FileTreeTab, true)
+                }
+            }
         }
         return true
     }
@@ -279,5 +292,10 @@ class FileTreeTab(val root: FileObject) : DrawerTab() {
     override fun onRemoved() {
         Preference.removeKey(indexingPreferenceKey)
         searchViewModel.get()?.deleteIndex(MainActivity.instance!!, root)
+    }
+
+    companion object {
+        // Keep persisted drawer tabs readable after adding fields to this class.
+        @JvmField val serialVersionUID: Long = -7364282501876413860L
     }
 }

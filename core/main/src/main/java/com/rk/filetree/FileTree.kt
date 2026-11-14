@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +53,7 @@ import com.rk.resources.getString
 import com.rk.resources.strings
 import com.rk.settings.Settings
 import kotlin.math.min
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 enum class SortMode(val stringRes: Int) {
@@ -79,7 +81,9 @@ fun FileTree(
 
     // refresh on demand to avoid lag/crash on resume
 
-    LaunchedEffect(viewModel.sortMode) { viewModel.refreshEverything() }
+    LaunchedEffect(viewModel) {
+        snapshotFlow { viewModel.sortMode }.drop(1).collect { viewModel.refreshEverything() }
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(

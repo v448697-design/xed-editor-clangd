@@ -60,6 +60,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.lang.ref.WeakReference
 
 @OptIn(DelicateCoroutinesApi::class, ExperimentalLayoutApi::class)
@@ -176,10 +177,29 @@ fun Editor.registerXedEvents(
         val viewModel = fileTreeViewModel.get()
         val diagnostics = event.newDiagnosticsEvent
 
-        val highestSeverity = diagnostics.maxOfOrNull { it.severity.toInt() }
+        var errors = 0
+        var warnings = 0
+        var infos = 0
+        var highestSeverity: Int? = null
+        diagnostics.forEach { diagnostic ->
+            val severity = diagnostic.severity.toInt()
+            if (highestSeverity == null || severity > highestSeverity!!) {
+                highestSeverity = severity
+            }
+            when (severity) {
+                3 -> errors++
+                2 -> warnings++
+                else -> infos++
+            }
+        }
+
+        editorTab.editorState.errorCount = errors
+        editorTab.editorState.warningCount = warnings
+        editorTab.editorState.infoCount = infos
+        editorTab.editorState.diagnosticsReceived = true
 
         if (highestSeverity != null) {
-            viewModel?.diagnoseNode(file, highestSeverity)
+            viewModel?.diagnoseNode(file, highestSeverity!!)
         } else {
             viewModel?.undiagnoseNode(file)
         }
@@ -245,10 +265,60 @@ fun Editor.registerXedEvents(
     }
 }
 
+private val lspProjectMarkers =
+    listOf(
+        "compile_commands.json",
+        "compile_flags.txt",
+        ".clangd",
+        ".git",
+        "CMakeLists.txt",
+        "Makefile",
+        "meson.build",
+    )
+
+private fun isFilesystemRoot(file: File): Boolean {
+    val path = file.absolutePath
+    return file.parentFile == null || path == "/" || path == "/sdcard" || path == "/storage/emulated/0"
+}
+
+/**
+ * Picks a sensible clangd working directory. The drawer root can be the whole storage volume, and starting clangd
+ * there makes it scan (and try to index) the entire device. Prefer the nearest directory with project metadata, then
+ * the file's parent.
+ */
+private fun EditorTab.resolveLspProjectRoot(): FileObject? {
+    val wrapper = file as? FileWrapper ?: return projectRoot
+    val start = wrapper.file.parentFile ?: return projectRoot
+
+    var dir: File? = start
+    var depth = 0
+    while (dir != null && depth++ < 8) {
+        if (!isFilesystemRoot(dir) && lspProjectMarkers.any { File(dir, it).exists() }) {
+            return FileWrapper(dir)
+        }
+        dir = dir.parentFile
+    }
+
+    val fallback = projectRoot
+    val fallbackFile = (fallback as? FileWrapper)?.file
+    if (fallback != null && fallbackFile != null && !isFilesystemRoot(fallbackFile)) {
+        return fallback
+    }
+    return FileWrapper(start)
+}
+
 fun EditorTab.applyHighlightingAndConnectLSP() {
     val editor = editorState.editor.get() ?: return
 
+    if (lspConnector?.isConnectedTo(file) == true) {
+        logInfo("LSP already connected for ${file.getAbsolutePath()}")
+        return
+    }
+
     scope.launch(Dispatchers.IO) {
+        lspConnector?.disconnect()
+        lspConnector = null
+
         editorState.textmateScope?.let { editor.configureLanguage(it) }
 
         val editorConfigProps = editorState.editorConfigLoaded?.await()
@@ -279,11 +349,12 @@ fun EditorTab.applyHighlightingAndConnectLSP() {
                 }
 
         val projectFile =
-            projectRoot
+            resolveLspProjectRoot()
                 ?: run {
                     logWarn("File ${file.getName()} has no suitable project root. Skipping language server connection.")
                     return@launch
                 }
+        projectRoot = projectFile
 
         lspConnector =
             LspConnector(
@@ -296,7 +367,17 @@ fun EditorTab.applyHighlightingAndConnectLSP() {
 
         logInfo("Trying to connect language servers...")
         lspConnector?.connect(wrapperLanguage)
-        logInfo("isConnected : ${lspConnector?.isConnected() ?: false}")
+        val connected = lspConnector?.isConnected() ?: false
+        logInfo("isConnected : $connected")
+
+        if (connected) {
+            withContext(Dispatchers.Main) {
+                editorState.errorCount = 0
+                editorState.warningCount = 0
+                editorState.infoCount = 0
+                editorState.diagnosticsReceived = true
+            }
+        }
     }
 }
 

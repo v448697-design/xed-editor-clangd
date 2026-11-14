@@ -4,9 +4,12 @@ import android.app.Activity
 import android.content.Context
 import com.rk.file.BuiltinFileType
 import com.rk.file.FileObject
+import com.rk.filetree.isStorageVolumeRoot
 import com.rk.lsp.LspConnectionConfig
 import com.rk.lsp.LspServer
 import com.rk.utils.application
+import io.github.rosemoe.sora.lsp.requests.Timeout
+import io.github.rosemoe.sora.lsp.requests.Timeouts
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -49,6 +52,10 @@ object Cpp : LspServer() {
     override fun update(activity: Activity) {}
 
     override suspend fun beforeConnect() {
+        Timeout[Timeouts.INIT] = 30_000
+        Timeout[Timeouts.COMPLETION] = 5_000
+        Timeout[Timeouts.HOVER] = 3_000
+        Timeout[Timeouts.DEFINITION] = 4_000
         withContext(Dispatchers.IO) { ensureHeaders() }
     }
 
@@ -72,6 +79,15 @@ object Cpp : LspServer() {
     fun ensureProjectFlags(projectRoot: FileObject, isCpp: Boolean = true) {
         val root = File(projectRoot.getAbsolutePath())
         if (!root.isDirectory) return
+        if (isStorageVolumeRoot(projectRoot)) {
+            val stale = File(root, "compile_flags.txt")
+            runCatching {
+                if (stale.exists() && isOwnedFlags(stale.readText())) {
+                    stale.delete()
+                }
+            }
+            return
+        }
         if (File(root, "compile_commands.json").exists()) return
         if (File(root, ".clangd").exists()) return
 

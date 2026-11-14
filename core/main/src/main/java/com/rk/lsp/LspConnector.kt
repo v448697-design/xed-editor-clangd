@@ -127,6 +127,10 @@ class LspConnector(
         return lspEditor?.isConnected == true
     }
 
+    fun isConnectedTo(file: FileObject): Boolean {
+        return isConnected() && fileObject == file
+    }
+
     suspend fun connect(wrapperLanguage: TextMateLanguage?) =
         withContext(Dispatchers.IO) {
             if (isConnected()) {

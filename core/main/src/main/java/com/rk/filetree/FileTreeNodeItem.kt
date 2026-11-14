@@ -149,7 +149,9 @@ fun FileTreeNodeItem(
                 Spacer(modifier = Modifier.width(24.dp))
             }
 
-            Box(modifier = Modifier.addIf(isHidden) { alpha(0.5f) }) { FileIcon(node.file, isExpanded = isExpanded) }
+            Box(modifier = Modifier.addIf(isHidden) { alpha(0.5f) }) {
+                FileNameIcon(node.name, node.isDirectory, isExpanded = isExpanded)
+            }
 
             Spacer(modifier = Modifier.width(8.dp))
 

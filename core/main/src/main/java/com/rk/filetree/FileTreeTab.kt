@@ -86,9 +86,13 @@ class FileTreeTab(val root: FileObject) : DrawerTab() {
 
         LaunchedEffect(root) {
             if (InbuiltFeatures.git.state.value) {
-                val gitRoot = findGitRoot(root.getAbsolutePath())
-                if (gitRoot != null) {
-                    gitViewModel.get()?.loadRepository(gitRoot)
+                val path = root.getAbsolutePath()
+                val currentRoot = gitViewModel.get()?.currentRoot?.value?.absolutePath
+                if (currentRoot == null || (path != currentRoot && !path.startsWith("$currentRoot/"))) {
+                    val gitRoot = findGitRoot(path)
+                    if (gitRoot != null && gitRoot != currentRoot) {
+                        gitViewModel.get()?.loadRepository(gitRoot)
+                    }
                 }
             }
         }

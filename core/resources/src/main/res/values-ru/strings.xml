@@ -112,6 +112,7 @@
     <string name="check_for_updates_desc">Периодически проверять наличие обновлений</string>
     <string name="click_open">Нажмите здесь, чтобы открыть файл</string>
     <string name="run">Запустить</string>
+    <string name="compile">Компилировать</string>
     <string name="txt_word_wrap">Перенос TXT-файлов</string>
     <string name="txt_word_wrap_desc">Автоматически переносить строки в TXT-файлах</string>
     <string name="content">Контент</string>

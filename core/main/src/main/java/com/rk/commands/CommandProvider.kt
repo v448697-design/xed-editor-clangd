@@ -1,6 +1,7 @@
 package com.rk.commands
 
 import androidx.compose.runtime.mutableStateListOf
+import com.rk.commands.editor.CompileCommand
 import com.rk.commands.editor.CopyCommand
 import com.rk.commands.editor.CutCommand
 import com.rk.commands.editor.DuplicateLineCommand
@@ -64,6 +65,7 @@ object CommandProvider {
     lateinit var UndoCommand: UndoCommand
     lateinit var RedoCommand: RedoCommand
     lateinit var RunCommand: RunCommand
+    lateinit var CompileCommand: CompileCommand
     lateinit var ToggleReadOnlyCommand: ToggleReadOnlyCommand
     lateinit var SearchCommand: SearchCommand
     lateinit var ReplaceCommand: ReplaceCommand
@@ -103,6 +105,7 @@ object CommandProvider {
             registerBuiltin(UndoCommand()) { UndoCommand = it }
             registerBuiltin(RedoCommand()) { RedoCommand = it }
             registerBuiltin(RunCommand()) { RunCommand = it }
+            registerBuiltin(CompileCommand()) { CompileCommand = it }
             registerBuiltin(ToggleReadOnlyCommand()) { ToggleReadOnlyCommand = it }
             registerBuiltin(SearchCommand()) { SearchCommand = it }
             registerBuiltin(ReplaceCommand()) { ReplaceCommand = it }

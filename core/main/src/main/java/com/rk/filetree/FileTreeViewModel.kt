@@ -14,6 +14,7 @@ import com.rk.activities.main.searchViewModel
 import com.rk.file.FileObject
 import com.rk.search.GlobExcluder
 import com.rk.settings.Settings
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -218,6 +219,7 @@ class FileTreeViewModel : ViewModel() {
 
     // Track loading states to avoid showing spinners incorrectly
     private val _loadingStates = mutableStateMapOf<FileObject, Boolean>()
+    private val activeLoads = ConcurrentHashMap.newKeySet<FileObject>()
 
     fun isNodeExpanded(projectRoot: FileObject, fileObject: FileObject): Boolean =
         expandedNodes[projectRoot]?.contains(fileObject) ?: false
@@ -304,6 +306,9 @@ class FileTreeViewModel : ViewModel() {
         if (file.isDirectory().not()) {
             return
         }
+        if (!activeLoads.add(file)) {
+            return
+        }
         collapsedNameCache.remove(file)
         _loadingStates[file] = true // Mark as loading
         viewModelScope.launch(Dispatchers.IO) {
@@ -323,8 +328,8 @@ class FileTreeViewModel : ViewModel() {
                 fileListCache[file] = sortedFiles
 
                 viewModelScope.launch { clearLoadingState(file) }
-            } catch (_: Exception) {
-                _loadingStates[file] = false
+            } finally {
+                activeLoads.remove(file)
             }
         }
     }
@@ -424,6 +429,10 @@ class FileTreeViewModel : ViewModel() {
             return
         }
 
+        if (!activeLoads.add(node.file)) {
+            return
+        }
+
         // Set loading state
         _loadingStates[node.file] = true
 
@@ -443,8 +452,8 @@ class FileTreeViewModel : ViewModel() {
 
                 fileListCache[node.file] = sortedFiles
                 viewModelScope.launch { clearLoadingState(node.file) }
-            } catch (_: Exception) {
-                _loadingStates[node.file] = false
+            } finally {
+                activeLoads.remove(node.file)
             }
         }
     }

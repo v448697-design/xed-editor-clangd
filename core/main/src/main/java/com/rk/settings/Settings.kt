@@ -172,6 +172,20 @@ object Settings {
                 e.printStackTrace()
             }
         }
+
+        if (!Preference.getBoolean("toolbar_compile_added", false)) {
+            val items = action_items.split("|").filter { it.isNotEmpty() }.toMutableList()
+            if (items.none { it == "editor.compile" }) {
+                val runIndex = items.indexOf("editor.run")
+                if (runIndex >= 0) {
+                    items.add(runIndex + 1, "editor.compile")
+                } else {
+                    items.add("editor.compile")
+                }
+                action_items = items.joinToString("|")
+            }
+            Preference.setBoolean("toolbar_compile_added", true)
+        }
     }
 }
 

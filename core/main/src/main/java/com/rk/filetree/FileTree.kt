@@ -134,7 +134,7 @@ fun FileTree(
         LazyColumn(modifier = Modifier.fillMaxSize().padding(vertical = 6.dp)) {
             items(items = visibleNodes, key = { it.node.file.getAbsolutePath() }) { item ->
                 FileTreeNodeItem(
-                    modifier = Modifier.fillMaxWidth().animateItem(),
+                    modifier = Modifier.fillMaxWidth(),
                     root = rootNode.file,
                     node = item.node,
                     depth = item.depth,

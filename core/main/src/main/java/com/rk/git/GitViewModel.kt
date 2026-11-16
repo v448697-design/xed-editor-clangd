@@ -12,6 +12,7 @@ import com.rk.settings.app.InbuiltFeatures
 import com.rk.utils.findGitRoot
 import com.rk.utils.toast
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -37,19 +38,31 @@ class GitViewModel : ViewModel() {
 
     var isLoading by mutableStateOf(false)
 
+    private var changeTypeCache by mutableStateOf<Map<String, ChangeType>>(emptyMap())
+    private val activeSyncs = ConcurrentHashMap.newKeySet<String>()
+    private val pendingSyncs = ConcurrentHashMap.newKeySet<String>()
+
     fun loadRepository(root: String) {
-        try {
-            currentRoot.value = File(root)
-            currentBranch = Git.open(currentRoot.value).currentHead()
-            syncChanges(currentRoot.value!!)
-            if (!amends.containsKey(root)) {
-                amends[root] = false
+        if (currentRoot.value?.absolutePath == root && changes.containsKey(root)) return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val repoFile = File(root)
+                val branch = Git.open(repoFile).use { it.currentHead() }
+                withContext(Dispatchers.Main) {
+                    currentRoot.value = repoFile
+                    currentBranch = branch
+                    if (!amends.containsKey(root)) {
+                        amends[root] = false
+                    }
+                    if (!commitMessages.containsKey(root)) {
+                        commitMessages[root] = ""
+                    }
+                }
+                syncChanges(repoFile)
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { toast(e.message) }
             }
-            if (!commitMessages.containsKey(root)) {
-                commitMessages[root] = ""
-            }
-        } catch (e: Exception) {
-            toast(e.message)
         }
     }
 
@@ -92,6 +105,7 @@ class GitViewModel : ViewModel() {
             changes[currentRoot.value!!.absolutePath]!!.map {
                 if (it.path == change.path) it.copy(isChecked = !it.isChecked) else it
             }
+        rebuildChangeTypeCache()
     }
 
     fun addChange(change: GitChange) {
@@ -99,6 +113,7 @@ class GitViewModel : ViewModel() {
             changes[currentRoot.value!!.absolutePath]!!.map {
                 if (it.path == change.path) it.copy(isChecked = true) else it
             }
+        rebuildChangeTypeCache()
     }
 
     fun removeChange(change: GitChange) {
@@ -106,6 +121,7 @@ class GitViewModel : ViewModel() {
             changes[currentRoot.value!!.absolutePath]!!.map {
                 if (it.path == change.path) it.copy(isChecked = false) else it
             }
+        rebuildChangeTypeCache()
     }
 
     fun changeCommitMessage(message: String) {
@@ -117,12 +133,13 @@ class GitViewModel : ViewModel() {
     }
 
     fun getChangeType(path: String): ChangeType? {
-        changes.forEach { (gitRoot, changes) ->
-            if (path.startsWith(gitRoot)) {
-                return changes.find { change -> change.absolutePath == path }?.type
-            }
-        }
-        return null
+        return changeTypeCache[path]
+    }
+
+    private fun rebuildChangeTypeCache() {
+        val cache = HashMap<String, ChangeType>()
+        changes.values.forEach { list -> list.forEach { cache[it.absolutePath] = it.type } }
+        changeTypeCache = cache
     }
 
     fun cloneRepository(
@@ -307,9 +324,15 @@ class GitViewModel : ViewModel() {
     }
 
     fun syncChanges(root: File): Job {
-        return viewModelScope.launch(Dispatchers.IO) {
-            if (!InbuiltFeatures.git.state.value) return@launch
+        if (!InbuiltFeatures.git.state.value) return Job()
 
+        val key = root.absolutePath
+        if (!activeSyncs.add(key)) {
+            pendingSyncs.add(key)
+            return Job()
+        }
+
+        return viewModelScope.launch(Dispatchers.IO) {
             withContext(Dispatchers.Main) { isLoading = true }
             try {
                 val newChanges = mutableListOf<GitChange>()
@@ -348,10 +371,15 @@ class GitViewModel : ViewModel() {
                         newChanges
                     }
                 changes[gitRoot] = mergedChanges
+                rebuildChangeTypeCache()
             } catch (e: Exception) {
                 toast(e.message)
             } finally {
                 withContext(Dispatchers.Main) { isLoading = false }
+                activeSyncs.remove(key)
+                if (pendingSyncs.remove(key)) {
+                    syncChanges(root)
+                }
             }
         }
     }

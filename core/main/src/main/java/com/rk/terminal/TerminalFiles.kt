@@ -39,10 +39,10 @@ fun setupTerminalFiles() {
 
 fun setupLspFile(fileName: String) = setupAssetFile("lsp/$fileName")
 
-fun setupAssetFile(fileName: String) {
+fun setupAssetFile(fileName: String, force: Boolean = false) {
     with(localBinDir().child(fileName)) {
         parentFile?.mkdir()
-        if (exists().not()) {
+        if (force || exists().not()) {
             createFileIfNot()
             writeText(application!!.assets.open("terminal/$fileName.sh").bufferedReader().use { it.readText() })
         }

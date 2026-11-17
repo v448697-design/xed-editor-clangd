@@ -26,6 +26,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
@@ -67,7 +68,10 @@ import com.rk.utils.hasBinaryChars
 import io.github.rosemoe.sora.text.ContentIO
 import java.nio.charset.Charset
 import java.nio.file.Paths
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -350,6 +354,7 @@ open class EditorTab(override var file: FileObject, var projectRoot: FileObject?
     @Composable
     override fun Content() {
         val context = LocalContext.current
+        val autoSaveJob = remember { AtomicReference<Job?>(null) }
 
         key(refreshKey) {
             LaunchedEffect(editorState.editable) { editorState.editor.get()?.editable = editorState.editable }
@@ -444,15 +449,16 @@ open class EditorTab(override var file: FileObject, var projectRoot: FileObject?
                     modifier = Modifier.weight(1f),
                     intelligentFeatures = intelligentFeatures,
                     onTextChange = {
+                        editorState.isDirty = true
                         if (Settings.auto_save && !isTemp) {
-                            scope.launch(Dispatchers.IO) {
-                                quickSave()
-                                saveMutex.lock()
-                                delay(Settings.auto_save_delay)
-                                saveMutex.unlock()
-                            }
-                        } else {
-                            editorState.isDirty = true
+                            val previous = autoSaveJob.get()
+                            autoSaveJob.set(
+                                scope.launch(Dispatchers.IO) {
+                                    delay(Settings.auto_save_delay.coerceAtLeast(150L))
+                                    withContext(NonCancellable) { quickSave() }
+                                }
+                            )
+                            previous?.cancel()
                         }
 
                         if (file.getName() == ".editorconfig" && Settings.enable_editorconfig) {

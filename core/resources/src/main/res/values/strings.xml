@@ -121,7 +121,6 @@
     <string name="check_for_updates_desc">Periodically check for updates</string>
     <string name="click_open">Click here to open file</string>
     <string name="run">Run</string>
-    <string name="compile">Compile</string>
     <string name="txt_word_wrap">Wrap TXT files</string>
     <string name="txt_word_wrap_desc">Automatically wrap TXT files</string>
     <string name="manage_editor_font">Manage editor fonts</string>

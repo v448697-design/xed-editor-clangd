@@ -29,6 +29,7 @@ import com.rk.commands.KeybindingsManager
 import com.rk.editor.Editor
 import com.rk.editor.LanguageManager
 import com.rk.editor.intelligent.IntelligentFeature
+import com.rk.editor.intelligent.completion.SmartCompletion
 import com.rk.file.FileObject
 import com.rk.file.FileWrapper
 import com.rk.lsp.LspConnector
@@ -102,12 +103,18 @@ fun EditorTab.CodeEditor(
 
                     registerXedActions(scope, viewModel, this@CodeEditor)
                     registerXedEvents(this@CodeEditor, intelligentFeatures, file, onTextChange)
+                    val editorView = this
 
                     scope.launch(Dispatchers.IO) {
                         editorState.contentLoaded.await()
                         editorState.updateLock.withLock {
                             withContext(Dispatchers.Main) {
                                 setText(editorState.content)
+                                SmartCompletion.attach(
+                                    editorView,
+                                    this@CodeEditor.projectRoot?.getAbsolutePath(),
+                                    file.getAbsolutePath(),
+                                )
                                 editorState.contentRendered.complete(Unit)
                             }
                         }
@@ -206,6 +213,7 @@ fun Editor.registerXedEvents(
     }
 
     subscribeAlways(ContentChangeEvent::class.java) {
+        SmartCompletion.onTextChanged(this, it.action, it.changedText, it.changeStart)
         intelligentFeatures.forEach { feature ->
             when (it.action) {
                 ContentChangeEvent.ACTION_INSERT -> feature.handleInsert(this)

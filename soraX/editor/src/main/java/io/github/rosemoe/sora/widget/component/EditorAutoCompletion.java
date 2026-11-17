@@ -54,6 +54,7 @@ import io.github.rosemoe.sora.lang.completion.Comparators;
 import io.github.rosemoe.sora.lang.completion.CompletionCancelledException;
 import io.github.rosemoe.sora.lang.completion.CompletionItem;
 import io.github.rosemoe.sora.lang.completion.CompletionPublisher;
+import io.github.rosemoe.sora.lang.completion.LocalCompletionRegistry;
 import io.github.rosemoe.sora.lang.styling.StylesUtils;
 import io.github.rosemoe.sora.text.CharPosition;
 import io.github.rosemoe.sora.text.ContentReference;
@@ -508,6 +509,9 @@ public class EditorAutoCompletion extends EditorPopupWindow implements EditorBui
             editor.getText().beginBatchEdit();
             editor.restartInput();
             try {
+                if (item.label != null) {
+                    LocalCompletionRegistry.onItemAccepted(editor, item.label);
+                }
                 item.performCompletion(editor, editor.getText(), completionThread.requestPosition);
                 editor.updateCursor();
             } finally {
@@ -564,6 +568,7 @@ public class EditorAutoCompletion extends EditorPopupWindow implements EditorBui
         requestTime = System.nanoTime();
         currentSelection = -1;
         publisher = new CompletionPublisher(editor.getHandler(), () -> {
+            publisher.removeDuplicateLocalCompletions();
             var items = publisher.getItems();
             if (highlightMatchedLabel) {
                 Comparators.highlightMatchLabel(items, editor.getColorScheme());
@@ -659,21 +664,22 @@ public class EditorAutoCompletion extends EditorPopupWindow implements EditorBui
         public void run() {
             try {
                 targetLanguage.requireAutoComplete(contentRef, requestPosition, localPublisher, extraData);
-                if (localPublisher.hasData()) {
-                    if (completionThread == Thread.currentThread()) {
-                        localPublisher.updateList(true);
-                    }
-                } else {
-                    editor.postInLifecycle(EditorAutoCompletion.this::hide);
-                }
-                editor.postInLifecycle(() -> setLoading(false));
             } catch (Exception e) {
                 if (e instanceof CompletionCancelledException) {
                     Log.v("CompletionThread", "Completion is cancelled");
-                } else {
-                    Log.e("CompletionThread", "Completion failed", e);
+                    return;
                 }
+                Log.e("CompletionThread", "Completion failed", e);
             }
+            LocalCompletionRegistry.provide(editor, contentRef, requestPosition, localPublisher);
+            if (localPublisher.hasData()) {
+                if (completionThread == Thread.currentThread()) {
+                    localPublisher.updateList(true);
+                }
+            } else {
+                editor.postInLifecycle(EditorAutoCompletion.this::hide);
+            }
+            editor.postInLifecycle(() -> setLoading(false));
         }
 
 

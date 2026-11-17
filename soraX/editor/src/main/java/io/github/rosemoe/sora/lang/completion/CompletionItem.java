@@ -102,6 +102,12 @@ public abstract class CompletionItem {
     @Nullable
     public String filterText;
 
+    /**
+     * Marks an item contributed by a local heuristic provider. Such items are dropped when the
+     * language already supplied an item with the same label.
+     */
+    public boolean localCompletion;
+
     @Nullable
     protected Object extra;
 

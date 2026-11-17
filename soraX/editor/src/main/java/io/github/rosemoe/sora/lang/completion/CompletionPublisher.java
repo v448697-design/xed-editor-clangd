@@ -32,7 +32,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -94,6 +96,70 @@ public class CompletionPublisher {
      */
     public boolean hasData() {
         return items.size() + candidates.size() > 0;
+    }
+
+    /**
+     * Check whether an item with the given label is already queued or displayed.
+     * <p>
+     * This lets an additional completion source (for example, a local statistical provider)
+     * avoid duplicating items that were already contributed by the editor language.
+     */
+    public boolean hasLabel(@NonNull CharSequence label) {
+        final var target = labelKey(label);
+        lock.lock();
+        try {
+            return containsLabel(items, target) || containsLabel(candidates, target);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private static boolean containsLabel(@NonNull List<CompletionItem> list, @NonNull String label) {
+        for (var item : list) {
+            if (item.label != null && label.equals(labelKey(item.label))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String labelKey(@NonNull CharSequence label) {
+        return label.toString().trim();
+    }
+
+    public void removeDuplicateLocalCompletions() {
+        lock.lock();
+        try {
+            removeDuplicateLocalCompletionsLocked();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void removeDuplicateLocalCompletionsLocked() {
+        if (items.isEmpty() && candidates.isEmpty()) {
+            return;
+        }
+        var labels = new HashSet<String>();
+        collectNonLocalLabels(items, labels);
+        collectNonLocalLabels(candidates, labels);
+        if (labels.isEmpty()) {
+            return;
+        }
+        items.removeIf(item -> isDuplicateLocal(item, labels));
+        candidates.removeIf(item -> isDuplicateLocal(item, labels));
+    }
+
+    private static void collectNonLocalLabels(@NonNull List<CompletionItem> list, @NonNull Set<String> labels) {
+        for (var item : list) {
+            if (!item.localCompletion && item.label != null) {
+                labels.add(labelKey(item.label));
+            }
+        }
+    }
+
+    private static boolean isDuplicateLocal(@NonNull CompletionItem item, @NonNull Set<String> labels) {
+        return item.localCompletion && item.label != null && labels.contains(labelKey(item.label));
     }
 
     /**
@@ -217,6 +283,7 @@ public class CompletionPublisher {
 
             if (locked) {
                 try {
+                    removeDuplicateLocalCompletionsLocked();
                     if (candidates.isEmpty()) {
                         callback.run();
                         return;

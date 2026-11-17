@@ -241,9 +241,14 @@ public class TextMateAnalyzer extends AsyncIncrementalAnalyzeManager<MyState, Sp
                 }
             }
             boolean needUnderline = (fontStyle & FontStyle.Underline) != 0;
+            boolean noCompletion = tokenType == StandardTokenType.Comment
+                || tokenType == StandardTokenType.String
+                || tokenType == StandardTokenType.RegEx;
+            long style = TextStyle.makeStyle(foreground + 255, 0,
+                (fontStyle & FontStyle.Bold) != 0, (fontStyle & FontStyle.Italic) != 0, false, noCompletion);
             Span span = needUnderline
-                ? SpanFactory.obtain(startIndex, TextStyle.makeStyle(foreground + 255, 0, (fontStyle & FontStyle.Bold) != 0, (fontStyle & FontStyle.Italic) != 0, false))
-                : SpanFactory.obtainNoExt(startIndex, TextStyle.makeStyle(foreground + 255, 0, (fontStyle & FontStyle.Bold) != 0, (fontStyle & FontStyle.Italic) != 0, false));
+                ? SpanFactory.obtain(startIndex, style)
+                : SpanFactory.obtainNoExt(startIndex, style);
 
             span.setExtra(tokenType);
 

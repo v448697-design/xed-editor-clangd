@@ -14,6 +14,7 @@ import com.rk.crashhandler.CrashHandler
 import com.rk.editor.CodeHighlighter
 import com.rk.editor.FontCache
 import com.rk.editor.KeywordManager
+import com.rk.editor.intelligent.completion.SmartCompletion
 import com.rk.editor.LanguageManager
 import com.rk.extension.ActivityProvider
 import com.rk.extension.manager.ExtensionAPIManager
@@ -87,6 +88,7 @@ class App : Application() {
 
         MarkdownImageProvider.register()
         FileIconProvider.register()
+        SmartCompletion.init(this)
 
         CommandProvider.buildCommands()
         KeybindingsManager.loadKeybindings()

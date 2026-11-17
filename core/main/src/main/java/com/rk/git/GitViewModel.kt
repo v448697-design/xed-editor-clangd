@@ -105,7 +105,6 @@ class GitViewModel : ViewModel() {
             changes[currentRoot.value!!.absolutePath]!!.map {
                 if (it.path == change.path) it.copy(isChecked = !it.isChecked) else it
             }
-        rebuildChangeTypeCache()
     }
 
     fun addChange(change: GitChange) {
@@ -113,7 +112,6 @@ class GitViewModel : ViewModel() {
             changes[currentRoot.value!!.absolutePath]!!.map {
                 if (it.path == change.path) it.copy(isChecked = true) else it
             }
-        rebuildChangeTypeCache()
     }
 
     fun removeChange(change: GitChange) {
@@ -121,7 +119,6 @@ class GitViewModel : ViewModel() {
             changes[currentRoot.value!!.absolutePath]!!.map {
                 if (it.path == change.path) it.copy(isChecked = false) else it
             }
-        rebuildChangeTypeCache()
     }
 
     fun changeCommitMessage(message: String) {
@@ -134,12 +131,6 @@ class GitViewModel : ViewModel() {
 
     fun getChangeType(path: String): ChangeType? {
         return changeTypeCache[path]
-    }
-
-    private fun rebuildChangeTypeCache() {
-        val cache = HashMap<String, ChangeType>()
-        changes.values.forEach { list -> list.forEach { cache[it.absolutePath] = it.type } }
-        changeTypeCache = cache
     }
 
     fun cloneRepository(
@@ -370,8 +361,10 @@ class GitViewModel : ViewModel() {
                     } else {
                         newChanges
                     }
-                changes[gitRoot] = mergedChanges
-                rebuildChangeTypeCache()
+                withContext(Dispatchers.Main) {
+                    changes[gitRoot] = mergedChanges
+                    changeTypeCache = mergedChanges.associate { it.absolutePath to it.type }
+                }
             } catch (e: Exception) {
                 toast(e.message)
             } finally {

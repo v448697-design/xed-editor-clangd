@@ -135,11 +135,13 @@ class LspLanguage(var editor: LspEditor) : Language {
                             )
                         )
                     }
-                }.exceptionally { throwable: Throwable ->
-                    publisher.cancel()
-                    throw CompletionCancelledException(throwable.message)
-                }.get(Timeout[Timeouts.COMPLETION].toLong(), TimeUnit.MILLISECONDS)
+                }.exceptionally { _: Throwable -> null }
+                .get(Timeout[Timeouts.COMPLETION].toLong(), TimeUnit.MILLISECONDS)
         } catch (e: InterruptedException) {
+            return
+        } catch (e: java.util.concurrent.TimeoutException) {
+            return
+        } catch (e: java.util.concurrent.ExecutionException) {
             return
         }
 

@@ -125,13 +125,14 @@ object Cpp : LspServer() {
 
     private fun isOwnedFlags(text: String): Boolean {
         val lines = text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
-        val owned =
-            listOf(
-                generatedFlags().lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList(),
-                generatedFlagsCpp().lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList(),
-                listOf("-std=c++17") + generatedFlags().lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList(),
-            )
-        return lines in owned
+        if ("--target=aarch64-linux-android26" !in lines) return false
+        if ("-xc" !in lines && "-xc++" !in lines) return false
+        return lines.indices.any { index ->
+            val line = lines[index]
+            line == "-isystem" &&
+                index + 1 < lines.size &&
+                lines[index + 1].contains("/files/clangd/include")
+        }
     }
 
     private fun ensureHeaders() {
